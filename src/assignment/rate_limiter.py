@@ -46,4 +46,19 @@ class RateLimitPlugin(base_plugin.BasePlugin):
         #           f"Rate limit exceeded. Try again in {wait:.0f}s."
         #       )
         # 3. Else: append now, return None
-        raise NotImplementedError("Implement RateLimitPlugin.on_user_message_callback")
+
+        # 1. Drop timestamps that slid out of the window (oldest are on the left).
+        while window and window[0] < now - self.window_seconds:
+            window.popleft()
+
+        # 2. Window full -> block without calling the LLM (do not record this hit).
+        if len(window) >= self.max_requests:
+            wait = self.window_seconds - (now - window[0])
+            self.blocked_count += 1
+            return self._block_response(
+                f"Rate limit exceeded. Try again in {wait:.0f}s."
+            )
+
+        # 3. Room left -> record this request and let it through.
+        window.append(now)
+        return None

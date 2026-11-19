@@ -51,14 +51,21 @@ def detect_injection(user_input: str) -> InputStatus:
     Returns:
         ``"BLOCK"`` if injection detected (chặn), ``"ALLOW"`` otherwise (cho qua).
     """
+   
+    clean_input = re.sub(r"[\u200b\u200c\u200d\u2060\ufeff]", "", user_input)
+
     INJECTION_PATTERNS = [
         # TODO: Add at least 5 regex patterns
         # Example:
-        # r"ignore (all )?(previous|above) instructions",
-    ]
+        r"you\s+are\s+now", 
+                    r"system\s+prompt", 
+                    r"reveal\s+your\s+instructions", 
+                    r"pretend\s+you\s+are", 
+                    r"act\s+as\s+(?:a\s+|an\s+)?unrestricted",
+                    r"ignore\s+(all\s+)?(previous|above)\s+instructions"]
 
     for pattern in INJECTION_PATTERNS:
-        if re.search(pattern, user_input, re.IGNORECASE):
+        if re.search(pattern, clean_input, re.IGNORECASE):
             return "BLOCK"
     return "ALLOW"
 
@@ -88,11 +95,20 @@ def topic_filter(user_input: str) -> InputStatus:
 
     # TODO: Implement logic:
     # 1. If input contains any blocked topic -> return "BLOCK"
+
+    for word in BLOCKED_TOPICS:
+        if word in input_lower: return "BLOCK"
     # 2. If input doesn't contain any allowed topic -> return "BLOCK"
+    found = False
+    for word in ALLOWED_TOPICS:
+        if word in input_lower: return "ALLOW"
+    if not found: return "BLOCK" 
+
     # 3. Otherwise -> return "ALLOW"
+    else: return "ALLOW" 
 
-    pass  # Replace with your implementation
 
+    
 
 # ============================================================
 # Implement InputGuardrailPlugin
@@ -147,11 +163,20 @@ class InputGuardrailPlugin(base_plugin.BasePlugin):
         # TODO: Implement logic:
         # 1. Call detect_injection(text)
         #    - If "BLOCK": increment blocked_count, return self._block_response("...")
+        if detect_injection(text) == "BLOCK":
+            self.blocked_count += 1
+            return self._block_response("I cannot proceed with this request")
+            
         # 2. Call topic_filter(text)
         #    - If "BLOCK": increment blocked_count, return self._block_response("...")
+        if topic_filter(text) == "BLOCK":
+            self.blocked_count += 1
+            return self._block_response("I'm a VinBank assistant and can only help with banking-related questions.")
+        
         # 3. If both return "ALLOW": return None (let message through)
+        return None
 
-        pass  # Replace with your implementation
+        
 
 
 # ============================================================
